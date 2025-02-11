@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 import matplotlib.pyplot as plt
+import random
 
 # 1. Carregar o conjunto de dados MNIST
 transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
@@ -72,8 +73,9 @@ with torch.no_grad():  # Desabilitar o cálculo do gradiente para eficiência
 print(f"Test Accuracy: {100 * correct / total}%")
 
 # Visualizar algumas previsões
-dataiter = iter(test_loader)  # Criando o iterador para o DataLoader
-images, labels = next(dataiter)  # Obtendo o próximo lote de imagens e rótulos
+dataiter = iter(test_loader)
+batch = random.choice(list(test_loader))  # Escolhe um batch aleatório
+images, labels = batch
 outputs = model(images)  # Passando as imagens pelo modelo
 
 _, predicted = torch.max(outputs, 1)  # Obtendo a classe com maior probabilidade
