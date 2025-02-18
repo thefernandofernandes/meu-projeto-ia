@@ -7,84 +7,83 @@ import matplotlib.pyplot as plt
 import random
 
 # 1. Carregar o conjunto de dados MNIST
-transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+transformacao = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
 
-train_data = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-test_data = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+dados_treinamento = datasets.MNIST(root='./data', train=True, download=True, transform=transformacao)
+dados_teste = datasets.MNIST(root='./data', train=False, download=True, transform=transformacao)
 
-train_loader = DataLoader(train_data, batch_size=64, shuffle=True)
-test_loader = DataLoader(test_data, batch_size=64, shuffle=False)
+carregador_treinamento = DataLoader(dados_treinamento, batch_size=64, shuffle=True)
+carregador_teste = DataLoader(dados_teste, batch_size=64, shuffle=False)
 
 # 2. Definir a rede neural
-class SimpleNN(nn.Module):
+class RedeNeuralSimples(nn.Module):
     def __init__(self):
-        super(SimpleNN, self).__init__()
-        self.fc1 = nn.Linear(28*28, 128)  # Entrada 28x28 pixels (784), saída 128
-        self.fc2 = nn.Linear(128, 64)     # Camada oculta
-        self.fc3 = nn.Linear(64, 10)      # Saída: 10 classes (0-9)
+        super(RedeNeuralSimples, self).__init__()
+        self.camada_oculta1 = nn.Linear(28*28, 128)  # Entrada 28x28 pixels (784), saída 128
+        self.camada_oculta2 = nn.Linear(128, 64)     # Segunda camada oculta
+        self.camada_saida = nn.Linear(64, 10)       # Saída: 10 classes (dígitos de 0 a 9)
 
-    def forward(self, x):
-        x = x.view(-1, 28*28)  # "Achatar" a imagem 28x28 em um vetor 1D de 784 elementos
-        x = torch.relu(self.fc1(x))  # Função de ativação ReLU
-        x = torch.relu(self.fc2(x))
-        x = self.fc3(x)  # Saída sem ativação (softmax será feito na função de perda)
-        return x
+    def forward(self, entrada):
+        entrada = entrada.view(-1, 28*28)  # "Achatar" a imagem 28x28 em um vetor 1D de 784 elementos
+        entrada = torch.relu(self.camada_oculta1(entrada))  # Função de ativação ReLU
+        entrada = torch.relu(self.camada_oculta2(entrada))
+        saida = self.camada_saida(entrada)  # Saída sem ativação (softmax será feito na função de perda)
+        return saida
 
-model = SimpleNN()
+modelo = RedeNeuralSimples()
 
 # 3. Definir a função de perda e o otimizador
-criterion = nn.CrossEntropyLoss()  # Para problemas de classificação
-optimizer = optim.SGD(model.parameters(), lr=0.01)
+funcao_perda = nn.CrossEntropyLoss()  # Para problemas de classificação
+otimizador = optim.SGD(modelo.parameters(), lr=0.01)
 
 # 4. Treinar o modelo
-num_epochs = 5
-for epoch in range(num_epochs):
-    model.train()  # Colocar o modelo no modo de treinamento
-    running_loss = 0.0
-    correct = 0
-    total = 0
+num_epocas = 5
+for epoca in range(num_epocas):
+    modelo.train()  # Colocar o modelo no modo de treinamento
+    perda_acumulada = 0.0
+    acertos = 0
+    total_amostras = 0
     
-    for images, labels in train_loader:
-        optimizer.zero_grad()  # Zerando o gradiente das iterações anteriores
-        outputs = model(images)  # Passando as imagens pela rede
-        loss = criterion(outputs, labels)  # Calculando a perda
-        loss.backward()  # Backpropagation (ajustando os pesos)
-        optimizer.step()  # Atualizando os pesos
+    for imagens, rotulos in carregador_treinamento:
+        otimizador.zero_grad()  # Zerando o gradiente das iterações anteriores
+        saidas = modelo(imagens)  # Passando as imagens pela rede
+        perda = funcao_perda(saidas, rotulos)  # Calculando a perda
+        perda.backward()  # Backpropagation (ajustando os pesos)
+        otimizador.step()  # Atualizando os pesos
 
-        running_loss += loss.item()
-        _, predicted = torch.max(outputs, 1)  # Pegando a previsão (classe com maior probabilidade)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+        perda_acumulada += perda.item()
+        _, previsao = torch.max(saidas, 1)  # Pegando a previsão (classe com maior probabilidade)
+        total_amostras += rotulos.size(0)
+        acertos += (previsao == rotulos).sum().item()
 
-    print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader)}, Accuracy: {100 * correct/total}%")
+    print(f"Época {epoca+1}/{num_epocas}, Perda: {perda_acumulada/len(carregador_treinamento)}, Acurácia: {100 * acertos/total_amostras}%")
 
 # 5. Avaliar a IA com os dados de teste
-model.eval()  # Colocar o modelo no modo de avaliação
-correct = 0
-total = 0
+modelo.eval()  # Colocar o modelo no modo de avaliação
+acertos = 0
+total_amostras = 0
 
 with torch.no_grad():  # Desabilitar o cálculo do gradiente para eficiência
-    for images, labels in test_loader:
-        outputs = model(images)
-        _, predicted = torch.max(outputs, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+    for imagens, rotulos in carregador_teste:
+        saidas = modelo(imagens)
+        _, previsao = torch.max(saidas, 1)
+        total_amostras += rotulos.size(0)
+        acertos += (previsao == rotulos).sum().item()
 
-print(f"Test Accuracy: {100 * correct / total}%")
+print(f"Acurácia no teste: {100 * acertos / total_amostras}%")
 
 # Visualizar algumas previsões
-dataiter = iter(test_loader)
-batch = random.choice(list(test_loader))  # Escolhe um batch aleatório
-images, labels = batch
-outputs = model(images)  # Passando as imagens pelo modelo
+lote_teste = random.choice(list(carregador_teste))  # Escolhe um batch aleatório
+imagens, rotulos = lote_teste
+saidas = modelo(imagens)  # Passando as imagens pelo modelo
 
-_, predicted = torch.max(outputs, 1)  # Obtendo a classe com maior probabilidade
+_, previsao = torch.max(saidas, 1)  # Obtendo a classe com maior probabilidade
 
 # Exibir as primeiras 5 imagens e suas previsões
-fig, axes = plt.subplots(1, 5, figsize=(12, 4))  # Criar um grid de 1x5 para exibir as imagens
+figura, eixos = plt.subplots(1, 5, figsize=(12, 4))  # Criar um grid de 1x5 para exibir as imagens
 for i in range(5):
-    axes[i].imshow(images[i].numpy().squeeze(), cmap='gray')  # Exibir a imagem (remove a dimensão de canal)
-    axes[i].set_title(f'Pred: {predicted[i].item()}')  # Exibir o rótulo previsto
-    axes[i].axis('off')  # Desativa os eixos para melhor visualização
+    eixos[i].imshow(imagens[i].numpy().squeeze(), cmap='gray')  # Exibir a imagem (remove a dimensão de canal)
+    eixos[i].set_title(f'Previsto: {previsao[i].item()}')  # Exibir o rótulo previsto
+    eixos[i].axis('off')  # Desativa os eixos para melhor visualização
 
 plt.show()
